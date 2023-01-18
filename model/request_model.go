@@ -30,6 +30,7 @@ const (
 	// FormTypeGRPC grpc 协议
 	FormTypeGRPC   = "grpc"
 	FormTypeRadius = "radius"
+	FormTypeFtps   = "ftps"
 )
 
 // 校验函数
@@ -164,6 +165,13 @@ func NewRequest(url string, verify string, code int, timeout time.Duration, debu
 	} else if strings.HasPrefix(url, "radius://") {
 		form = FormTypeRadius
 		url = url[9:]
+	} else if strings.HasPrefix(url, "ftps://") {
+		form = FormTypeFtps
+		url = url[7:]
+		if body == "" {
+			err = fmt.Errorf("ftps: fileName required")
+			return
+		}
 	} else {
 		form = FormTypeHTTP
 		url = fmt.Sprintf("http://%s", url)

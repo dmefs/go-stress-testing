@@ -86,7 +86,8 @@ func Dispose(ctx context.Context, concurrency, totalNumber uint64, request *mode
 		case model.FormTypeRadius:
 			// Radius use udp, does not a connection
 			go golink.Radius(ctx, i, ch, totalNumber, &wg, request)
-
+		case model.FormTypeFtps:
+			go golink.Ftps(ctx, i, ch, totalNumber, &wg, request)
 		default:
 			// 类型不支持
 			wg.Done()
@@ -99,5 +100,4 @@ func Dispose(ctx context.Context, concurrency, totalNumber uint64, request *mode
 	close(ch)
 	// 数据全部处理完成了
 	wgReceiving.Wait()
-	return
 }
