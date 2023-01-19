@@ -36,26 +36,25 @@ func operate(c *ftp.ServerConn, fileName string) (int64, error) {
 	return int64(len(buf)), err
 }
 
-func ftpsRun(request *model.Request) (int64, error) {
-	var (
-		err  error = nil
-		lens int64 = 0
-	)
-
+func ftpsLogin(request *model.Request) (c *ftp.ServerConn, err error) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	c, err := ftp.Dial(request.URL, ftp.DialWithTLS(conf))
+	c, err = ftp.Dial(request.URL, ftp.DialWithTLS(conf))
 	if err != nil {
 		logErr.Println("Failed to Dial:", err)
-		return lens, err
+		return nil, err
 	}
 
 	err = c.Login("admin", "admin")
 	if err != nil {
 		logErr.Println("Failed to login:", err)
-		return lens, err
+		return nil, err
 	}
+	return
+}
+
+func ftpsRun(c *ftp.ServerConn, request *model.Request) (lens int64, err error) {
 
 	// Do something with the FTP conn
 	lens, err = operate(c, request.Body)
@@ -63,10 +62,6 @@ func ftpsRun(request *model.Request) (int64, error) {
 		return lens, err
 	}
 
-	if err = c.Quit(); err != nil {
-		logErr.Println("Failed to quit:", err)
-		return lens, err
-	}
 	return lens, err
 }
 
@@ -82,14 +77,24 @@ func Ftps(ctx context.Context, chanID uint64, ch chan<- *model.RequestResults, t
 	defer func() {
 		wg.Done()
 	}()
-	startTime = time.Now()
-	lens, err = ftpsRun(request)
-	requestTime = uint64(helper.DiffNano(startTime))
-
-	rr := &model.RequestResults{
-		Time:          requestTime,
-		IsSucceed:     err == nil,
-		ReceivedBytes: lens,
+	c, err := ftpsLogin(request)
+	if err != nil {
+		return
 	}
-	ch <- rr
+	for i := uint64(0); i < totalNumber; i++ {
+		startTime = time.Now()
+		lens, err = ftpsRun(c, request)
+		requestTime = uint64(helper.DiffNano(startTime))
+
+		rr := &model.RequestResults{
+			Time:          requestTime,
+			IsSucceed:     err == nil,
+			ReceivedBytes: lens,
+		}
+		rr.SetID(chanID, i)
+		ch <- rr
+	}
+	if err = c.Quit(); err != nil {
+		logErr.Println("Failed to quit:", err)
+	}
 }
