@@ -60,8 +60,6 @@ func init() {
 	flag.BoolVar(&keepalive, "k", keepalive, "是否开启长连接")
 	flag.IntVar(&cpuNumber, "cpuNumber", cpuNumber, "CUP 核数，默认为一核")
 	flag.Int64Var(&timeout, "timeout", timeout, "超时时间 单位 秒,默认不设置")
-	// 解析参数
-	flag.Parse()
 }
 
 // main go 实现的压测工具
@@ -69,6 +67,8 @@ func init() {
 //
 //go:generate go build main.go
 func main() {
+	// 解析参数
+	flag.Parse()
 	runtime.GOMAXPROCS(cpuNumber)
 	if concurrency == 0 || totalNumber == 0 || (requestURL == "" && path == "") {
 		fmt.Printf("Example: go run main.go -c 1 -n 1 -u https://www.baidu.com/ \n")
@@ -87,16 +87,18 @@ func main() {
 	request.Print()
 
 	// 开始处理
-	ctx := context.Background()
-	if timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
-		defer cancel()
-		deadline, ok := ctx.Deadline()
-		if ok {
-			fmt.Printf(" deadline %s", deadline)
+	var ctx context.Context
+	if request.Form != model.FormTypeFtps {
+		ctx = context.Background()
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+			defer cancel()
+			deadline, ok := ctx.Deadline()
+			if ok {
+				fmt.Printf(" deadline %s", deadline)
+			}
 		}
 	}
 	server.Dispose(ctx, concurrency, totalNumber, request)
-	return
 }
